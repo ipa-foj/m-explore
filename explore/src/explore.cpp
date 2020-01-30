@@ -82,9 +82,9 @@ Explore::Explore()
   move_base_client_.waitForServer();
   ROS_INFO("Connected to move_base server");
 
-  exploring_timer_ =
-      relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
-                               [this](const ros::TimerEvent&) { makePlan(); });
+  exploring_timer_ = relative_nh_.createTimer(
+      ros::Duration(1. / planner_frequency_),
+      [this](const ros::TimerEvent&) { makePlan(); }, false, false);
 }
 
 Explore::~Explore()
@@ -302,6 +302,7 @@ int main(int argc, char** argv)
     ros::console::notifyLoggerLevelsChanged();
   }
   explore::Explore explore;
+  explore.start();
   ros::spin();
 
   return 0;
