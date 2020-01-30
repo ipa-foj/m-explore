@@ -43,6 +43,7 @@
 #include <vector>
 
 #include <actionlib/client/simple_action_client.h>
+#include <actionlib/server/simple_action_server.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <ros/ros.h>
@@ -50,6 +51,7 @@
 
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
+#include <explore_lite/ExploreAction.h>
 
 namespace explore
 {
@@ -85,6 +87,16 @@ private:
 
   bool goalOnBlacklist(const geometry_msgs::Point& goal);
 
+  void goalCB()
+  {
+    as_.acceptNewGoal();
+    start();
+  }
+  void preemptCB()
+  {
+    as_.setPreempted();
+  }
+
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_;
@@ -108,6 +120,7 @@ private:
   double potential_scale_, orientation_scale_, gain_scale_;
   ros::Duration progress_timeout_;
   bool visualize_;
+  actionlib::SimpleActionServer<explore_lite::ExploreAction> as_;
 };
 }
 

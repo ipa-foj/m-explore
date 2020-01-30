@@ -16,6 +16,17 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
 )
 
+add_action_files(
+  DIRECTORY action
+  FILES
+  Explore.action
+  )
+
+generate_messages(
+  DEPENDENCIES actionlib_msgs
+  )
+
+
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -71,6 +82,7 @@ install(TARGETS explore
 install(DIRECTORY launch/
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 )
+
 
 #############
 ## Testing ##

@@ -57,6 +57,7 @@ Explore::Explore()
   , move_base_client_("move_base")
   , prev_distance_(0)
   , last_markers_count_(0)
+  , as_(private_nh_, "explore", false)
 {
   double timeout;
   double min_frontier_size;
@@ -85,6 +86,9 @@ Explore::Explore()
   exploring_timer_ = relative_nh_.createTimer(
       ros::Duration(1. / planner_frequency_),
       [this](const ros::TimerEvent&) { makePlan(); }, false, false);
+  as_.registerGoalCallback(boost::bind(&Explore::goalCB, this));
+  as_.registerPreemptCallback(boost::bind(&Explore::preemptCB, this));
+  as_.start();
 }
 
 Explore::~Explore()
@@ -290,6 +294,8 @@ void Explore::stop()
   move_base_client_.cancelAllGoals();
   exploring_timer_.stop();
   ROS_INFO("Exploration stopped.");
+  explore_lite::ExploreResult result;
+  as_.setSucceeded(result);
 }
 
 }  // namespace explore
@@ -302,7 +308,6 @@ int main(int argc, char** argv)
     ros::console::notifyLoggerLevelsChanged();
   }
   explore::Explore explore;
-  explore.start();
   ros::spin();
 
   return 0;
