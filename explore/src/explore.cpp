@@ -84,6 +84,7 @@ Explore::Explore()
   move_base_client_.waitForServer();
   ROS_INFO("Connected to move_base server");
 
+  last_progress_ = ros::Time::now();
   exploring_timer_ =
       relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
                                [this](const ros::TimerEvent&) { makePlan(); });
@@ -183,10 +184,18 @@ void Explore::makePlan()
   // get current robot pose
   geometry_msgs::Pose pose = costmap_client_.getRobotPose();
 
-  // if too far from current goal, don't replan yet
-  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
-  if(distance>max_replanning_distance_)
-	  return;
+  // only check distance to current goal if the progress timeout wasn't hit
+  if (ros::Time::now()-last_progress_<=progress_timeout_)
+  {
+	  // if too far from current goal, don't replan yet
+	  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
+	  if(distance>max_replanning_distance_)
+		  return;
+  }
+  else
+  {
+	 move_base_client_.cancelAllGoals();
+  }
 
   // get frontiers sorted according to cost
   auto frontiers = search_.searchFrom(pose.position);
