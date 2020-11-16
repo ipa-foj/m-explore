@@ -69,6 +69,7 @@ Explore::Explore()
   private_nh_.param("orientation_scale", orientation_scale_, 0.0);
   private_nh_.param("gain_scale", gain_scale_, 1.0);
   private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
+  private_nh_.param("max_replanning_distance", max_replanning_distance_, 1.0);
 
   search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                  potential_scale_, gain_scale_,
@@ -179,8 +180,14 @@ void Explore::visualizeFrontiers(
 
 void Explore::makePlan()
 {
-  // find frontiers
-  auto pose = costmap_client_.getRobotPose();
+  // get current robot pose
+  geometry_msgs::Pose pose = costmap_client_.getRobotPose();
+
+  // if too far from current goal, don't replan yet
+  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
+  if(distance>max_replanning_distance_)
+	  return;
+
   // get frontiers sorted according to cost
   auto frontiers = search_.searchFrom(pose.position);
   ROS_DEBUG("found %lu frontiers", frontiers.size());
@@ -223,7 +230,8 @@ void Explore::makePlan()
   geometry_msgs::Point target_position = frontier->centroid;
 
   // remove the current frontier from the memory (already considered)
-  previous_frontiers_.erase(previous_frontiers_.begin()+std::distance(frontiers.begin(), frontier));
+  if(previous_frontiers_.size()>1)
+	previous_frontiers_.erase(previous_frontiers_.begin()+std::distance(frontiers.begin(), frontier));
 
   // time out if we are not making any progress
   bool same_goal = prev_goal_ == target_position;
@@ -247,6 +255,7 @@ void Explore::makePlan()
   }
 
   // send goal to move_base if we have something new to pursue
+  move_base_client_.cancelAllGoals();
   move_base_msgs::MoveBaseGoal goal;
   goal.target_pose.pose.position = target_position;
   goal.target_pose.pose.orientation.w = 1.;
