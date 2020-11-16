@@ -103,6 +103,9 @@ private:
   ros::Time last_progress_;
   size_t last_markers_count_;
 
+  // frontier memory
+  std::vector<frontier_exploration::Frontier> previous_frontiers_;
+
   // parameters
   double planner_frequency_;
   double potential_scale_, orientation_scale_, gain_scale_;

@@ -57,6 +57,7 @@ Explore::Explore()
   , move_base_client_("move_base")
   , prev_distance_(0)
   , last_markers_count_(0)
+  , previous_frontiers_{}
 {
   double timeout;
   double min_frontier_size;
@@ -187,15 +188,27 @@ void Explore::makePlan()
     ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
   }
 
-  if (frontiers.empty()) {
-    stop();
-    return;
+  if (frontiers.empty())
+  {
+	  // if no frontiers were found previously or none are left, stop the exploration
+	  if(previous_frontiers_.empty())
+	  {
+		  stop();
+		  return;
+	  }
+
+	  // if in the previous steps frontiers were left, check if they are still valid and if yes go there
+	  // (could happen because e.g. robot is stuck in separated area due to erronous costmap update)
+	  frontiers = previous_frontiers_;
   }
 
   // publish frontiers as visualization markers
   if (visualize_) {
     visualizeFrontiers(frontiers);
   }
+
+  // store the found frontiers in the memory
+  previous_frontiers_ = frontiers;
 
   // find non blacklisted frontier
   auto frontier =
@@ -208,6 +221,9 @@ void Explore::makePlan()
     return;
   }
   geometry_msgs::Point target_position = frontier->centroid;
+
+  // remove the current frontier from the memory (already considered)
+  previous_frontiers_.erase(previous_frontiers_.begin()+std::distance(frontiers.begin(), frontier));
 
   // time out if we are not making any progress
   bool same_goal = prev_goal_ == target_position;
