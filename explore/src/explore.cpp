@@ -185,7 +185,7 @@ void Explore::makePlan()
   geometry_msgs::Pose pose = costmap_client_.getRobotPose();
 
   // only check distance to current goal if the progress timeout wasn't hit
-  if(ros::Time::now()-last_progress_<=progress_timeout_ || move_base_client_.getState()!=actionlib::SimpleClientGoalState::ABORTED)
+  if(ros::Time::now()-last_progress_<=progress_timeout_ && move_base_client_.getState()!=actionlib::SimpleClientGoalState::ABORTED)
   {
 	  // if too far from current goal, don't replan yet
 	  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
