@@ -38,6 +38,7 @@
 #include <explore/explore.h>
 
 #include <thread>
+#include <unistd.h>
 
 inline static bool operator==(const geometry_msgs::Point& one,
                               const geometry_msgs::Point& two)
@@ -61,6 +62,7 @@ Explore::Explore()
 {
   double timeout;
   double min_frontier_size;
+  int max_cell_cost;
   private_nh_.param("planner_frequency", planner_frequency_, 1.0);
   private_nh_.param("progress_timeout", timeout, 30.0);
   progress_timeout_ = ros::Duration(timeout);
@@ -70,10 +72,11 @@ Explore::Explore()
   private_nh_.param("gain_scale", gain_scale_, 1.0);
   private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
   private_nh_.param("max_replanning_distance", max_replanning_distance_, 1.0);
+  private_nh_.param("max_cell_cost", max_cell_cost, 0);
 
   search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                  potential_scale_, gain_scale_,
-                                                 min_frontier_size);
+												 min_frontier_size, max_cell_cost);
 
   if (visualize_) {
     marker_array_publisher_ =
@@ -85,6 +88,7 @@ Explore::Explore()
   ROS_INFO("Connected to move_base server");
 
   last_progress_ = ros::Time::now();
+  makePlan(); // get first plan when starting the planner
   exploring_timer_ =
       relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
                                [this](const ros::TimerEvent&) { makePlan(); });
@@ -194,7 +198,12 @@ void Explore::makePlan()
   }
   else
   {
-	 move_base_client_.cancelAllGoals();
+	 // try to cancel the current goal
+	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE)
+	 {
+		move_base_client_.cancelAllGoals();
+		usleep(1e6); // sleep for 1e6 microseconds -> 1s
+	 }
   }
 
   // get frontiers sorted according to cost

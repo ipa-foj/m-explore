@@ -35,7 +35,7 @@ public:
    * @param costmap Reference to costmap data to search.
    */
   FrontierSearch(costmap_2d::Costmap2D* costmap, double potential_scale,
-                 double gain_scale, double min_frontier_size);
+				 double gain_scale, double min_frontier_size, int max_cell_cost);
 
   /**
    * @brief Runs search implementation, outward from the start position
@@ -83,6 +83,7 @@ private:
   unsigned int size_x_, size_y_;
   double potential_scale_, gain_scale_;
   double min_frontier_size_;
+  int max_cell_cost_; // maximal cost a costmap cell is allowed to have in order to consider it for the breadth-first search
 };
 }
 #endif

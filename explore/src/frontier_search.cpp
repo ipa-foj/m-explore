@@ -15,12 +15,13 @@ using costmap_2d::NO_INFORMATION;
 using costmap_2d::FREE_SPACE;
 
 FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
-                               double potential_scale, double gain_scale,
-                               double min_frontier_size)
+							   double potential_scale, double gain_scale,
+							   double min_frontier_size, int max_cell_cost)
   : costmap_(costmap)
   , potential_scale_(potential_scale)
   , gain_scale_(gain_scale)
   , min_frontier_size_(min_frontier_size)
+  , max_cell_cost_(max_cell_cost)
 {
 }
 
@@ -65,9 +66,8 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 
     // iterate over 4-connected neighbourhood
     for (unsigned nbr : nhood4(idx, *costmap_)) {
-      // add to queue all free, unvisited cells, use descending search in case
-      // initialized on non-free cell
-      if (map_[nbr] <= map_[idx] && !visited_flag[nbr]) {
+	  // add to queue all traversable cells
+	  if (map_[nbr] <= max_cell_cost_ && !visited_flag[nbr]) {
         visited_flag[nbr] = true;
         bfs.push(nbr);
         // check if cell is new frontier cell (unvisited, NO_INFORMATION, free
