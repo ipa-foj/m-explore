@@ -115,9 +115,13 @@ private:
   ros::Time last_progress_;
   size_t last_markers_count_;
 
+  // frontier memory
+  std::vector<frontier_exploration::Frontier> previous_frontiers_;
+
   // parameters
   double planner_frequency_;
   double potential_scale_, orientation_scale_, gain_scale_;
+  double max_replanning_distance_;
   ros::Duration progress_timeout_;
   bool visualize_;
   actionlib::SimpleActionServer<explore_lite::ExploreAction> as_;

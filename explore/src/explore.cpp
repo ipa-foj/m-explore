@@ -58,9 +58,11 @@ Explore::Explore()
   , prev_distance_(0)
   , last_markers_count_(0)
   , as_(private_nh_, "explore", false)
+  , previous_frontiers_{}
 {
   double timeout;
   double min_frontier_size;
+  int max_cell_cost;
   private_nh_.param("planner_frequency", planner_frequency_, 1.0);
   private_nh_.param("progress_timeout", timeout, 30.0);
   progress_timeout_ = ros::Duration(timeout);
@@ -69,10 +71,12 @@ Explore::Explore()
   private_nh_.param("orientation_scale", orientation_scale_, 0.0);
   private_nh_.param("gain_scale", gain_scale_, 1.0);
   private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
+  private_nh_.param("max_replanning_distance", max_replanning_distance_, 1.0);
+  private_nh_.param("max_cell_cost", max_cell_cost, 0);
 
   search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
-                                                 potential_scale_, gain_scale_,
-                                                 min_frontier_size);
+												 potential_scale_, gain_scale_, orientation_scale_,
+												 min_frontier_size, max_cell_cost);
 
   if (visualize_) {
     marker_array_publisher_ =
@@ -83,12 +87,10 @@ Explore::Explore()
   move_base_client_.waitForServer();
   ROS_INFO("Connected to move_base server");
 
-  exploring_timer_ = relative_nh_.createTimer(
-      ros::Duration(1. / planner_frequency_),
-      [this](const ros::TimerEvent&) { makePlan(); }, false, false);
-  as_.registerGoalCallback(boost::bind(&Explore::goalCB, this));
-  as_.registerPreemptCallback(boost::bind(&Explore::preemptCB, this));
-  as_.start();
+  last_progress_ = ros::Time::now();
+  exploring_timer_ =
+      relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
+                               [this](const ros::TimerEvent&) { makePlan(); });
 }
 
 Explore::~Explore()
@@ -182,24 +184,55 @@ void Explore::visualizeFrontiers(
 
 void Explore::makePlan()
 {
-  // find frontiers
-  auto pose = costmap_client_.getRobotPose();
+  // get current robot pose
+  geometry_msgs::Pose pose = costmap_client_.getRobotPose();
+
+  // only check distance to current goal if the progress timeout wasn't hit
+  if(ros::Time::now()-last_progress_<=progress_timeout_ && move_base_client_.getState()!=actionlib::SimpleClientGoalState::ABORTED)
+  {
+	  // if too far from current goal, don't replan yet
+	  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
+	  if(distance>max_replanning_distance_)
+		  return;
+  }
+  else
+  {
+	 // try to cancel the current goal
+	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE)
+	 {
+		move_base_client_.cancelAllGoals();
+		usleep(1e6); // sleep for 1e6 microseconds -> 1s
+	 }
+  }
+
   // get frontiers sorted according to cost
-  auto frontiers = search_.searchFrom(pose.position);
+  auto frontiers = search_.searchFrom(pose);
   ROS_DEBUG("found %lu frontiers", frontiers.size());
   for (size_t i = 0; i < frontiers.size(); ++i) {
     ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
   }
 
-  if (frontiers.empty()) {
-    stop();
-    return;
+  if (frontiers.empty())
+  {
+	  // if no frontiers were found previously or none are left, stop the exploration
+	  if(previous_frontiers_.empty())
+	  {
+		  stop();
+		  return;
+	  }
+
+	  // if in the previous steps frontiers were left, check if they are still valid and if yes go there
+	  // (could happen because e.g. robot is stuck in separated area due to erronous costmap update)
+	  frontiers = previous_frontiers_;
   }
 
   // publish frontiers as visualization markers
   if (visualize_) {
     visualizeFrontiers(frontiers);
   }
+
+  // store the found frontiers in the memory
+  previous_frontiers_ = frontiers;
 
   // find non blacklisted frontier
   auto frontier =
@@ -212,6 +245,10 @@ void Explore::makePlan()
     return;
   }
   geometry_msgs::Point target_position = frontier->centroid;
+
+  // remove the current frontier from the memory (already considered)
+  if(previous_frontiers_.size()>1)
+	previous_frontiers_.erase(previous_frontiers_.begin()+std::distance(frontiers.begin(), frontier));
 
   // time out if we are not making any progress
   bool same_goal = prev_goal_ == target_position;
@@ -235,6 +272,7 @@ void Explore::makePlan()
   }
 
   // send goal to move_base if we have something new to pursue
+  move_base_client_.cancelAllGoals();
   move_base_msgs::MoveBaseGoal goal;
   goal.target_pose.pose.position = target_position;
   goal.target_pose.pose.orientation.w = 1.;

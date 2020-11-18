@@ -2,6 +2,7 @@
 #define FRONTIER_SEARCH_H_
 
 #include <costmap_2d/costmap_2d.h>
+#include <geometry_msgs/Pose.h>
 
 namespace frontier_exploration
 {
@@ -35,14 +36,14 @@ public:
    * @param costmap Reference to costmap data to search.
    */
   FrontierSearch(costmap_2d::Costmap2D* costmap, double potential_scale,
-                 double gain_scale, double min_frontier_size);
+				 double gain_scale, double orientation_scale, double min_frontier_size, int max_cell_cost);
 
   /**
    * @brief Runs search implementation, outward from the start position
-   * @param position Initial position to search from
+   * @param robot_pose Initial position to search from
    * @return List of frontiers, if any
    */
-  std::vector<Frontier> searchFrom(geometry_msgs::Point position);
+  std::vector<Frontier> searchFrom(const geometry_msgs::Pose& robot_pose);
 
 protected:
   /**
@@ -73,16 +74,18 @@ protected:
    * @details cost function is defined by potential_scale and gain_scale
    *
    * @param frontier frontier for which compute the cost
+   * @param robot_angle the current robot angle in the 2D map, used for adding the orientation cost
    * @return cost of the frontier
    */
-  double frontierCost(const Frontier& frontier);
+  double frontierCost(const Frontier& frontier, const double robot_angle);
 
 private:
   costmap_2d::Costmap2D* costmap_;
   unsigned char* map_;
   unsigned int size_x_, size_y_;
-  double potential_scale_, gain_scale_;
+  double potential_scale_, gain_scale_, orientation_scale_;
   double min_frontier_size_;
+  int max_cell_cost_; // maximal cost a costmap cell is allowed to have in order to consider it for the breadth-first search
 };
 }
 #endif
