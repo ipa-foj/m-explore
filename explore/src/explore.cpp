@@ -68,14 +68,14 @@ Explore::Explore()
   progress_timeout_ = ros::Duration(timeout);
   private_nh_.param("visualize", visualize_, false);
   private_nh_.param("potential_scale", potential_scale_, 1e-3);
-  private_nh_.param("orientation_scale", orientation_scale_, 0.0);
+  private_nh_.param("orientation_scale", orientation_scale_, 1.0);
   private_nh_.param("gain_scale", gain_scale_, 1.0);
   private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
   private_nh_.param("max_replanning_distance", max_replanning_distance_, 1.0);
   private_nh_.param("max_cell_cost", max_cell_cost, 0);
 
   search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
-                                                 potential_scale_, gain_scale_,
+												 potential_scale_, gain_scale_, orientation_scale_,
 												 min_frontier_size, max_cell_cost);
 
   if (visualize_) {
@@ -207,7 +207,7 @@ void Explore::makePlan()
   }
 
   // get frontiers sorted according to cost
-  auto frontiers = search_.searchFrom(pose.position);
+  auto frontiers = search_.searchFrom(pose);
   ROS_DEBUG("found %lu frontiers", frontiers.size());
   for (size_t i = 0; i < frontiers.size(); ++i) {
     ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);

@@ -4,9 +4,11 @@
 
 #include <costmap_2d/cost_values.h>
 #include <costmap_2d/costmap_2d.h>
-#include <geometry_msgs/Point.h>
 
 #include <explore/costmap_tools.h>
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 
 namespace frontier_exploration
 {
@@ -15,23 +17,24 @@ using costmap_2d::NO_INFORMATION;
 using costmap_2d::FREE_SPACE;
 
 FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
-							   double potential_scale, double gain_scale,
+							   double potential_scale, double gain_scale, double orientation_scale,
 							   double min_frontier_size, int max_cell_cost)
   : costmap_(costmap)
   , potential_scale_(potential_scale)
   , gain_scale_(gain_scale)
+  , orientation_scale_(orientation_scale)
   , min_frontier_size_(min_frontier_size)
   , max_cell_cost_(max_cell_cost)
 {
 }
 
-std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
+std::vector<Frontier> FrontierSearch::searchFrom(const geometry_msgs::Pose& robot_pose)
 {
   std::vector<Frontier> frontier_list;
 
   // Sanity check that robot is inside costmap bounds before searching
   unsigned int mx, my;
-  if (!costmap_->worldToMap(position.x, position.y, mx, my)) {
+  if (!costmap_->worldToMap(robot_pose.position.x, robot_pose.position.y, mx, my)) {
     ROS_ERROR("Robot out of costmap bounds, cannot search for frontiers");
     return frontier_list;
   }
@@ -83,9 +86,16 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
     }
   }
 
+  // get current orientation angle (2D -> yaw)
+  tf2::Quaternion quat;
+  tf2::convert(robot_pose.orientation, quat);
+  tf2::Matrix3x3 R(quat);
+  double roll, pitch, yaw;
+  R.getRPY(roll, pitch, yaw);
+
   // set costs of frontiers
   for (auto& frontier : frontier_list) {
-    frontier.cost = frontierCost(frontier);
+	frontier.cost = frontierCost(frontier, yaw);
   }
   std::sort(
       frontier_list.begin(), frontier_list.end(),
@@ -188,10 +198,13 @@ bool FrontierSearch::isNewFrontierCell(unsigned int idx,
   return false;
 }
 
-double FrontierSearch::frontierCost(const Frontier& frontier)
+double FrontierSearch::frontierCost(const Frontier& frontier, const double robot_angle)
 {
-  return (potential_scale_ * frontier.min_distance *
-          costmap_->getResolution()) -
-         (gain_scale_ * frontier.size * costmap_->getResolution());
+  // get the basic cost (the closer and bigger a frontier, the lower the cost)
+  double cost = (potential_scale_ * frontier.min_distance * costmap_->getResolution()) - (gain_scale_ * frontier.size * costmap_->getResolution());
+
+  // add the rotation cost (the further the robot has to rotate, the higher)
+
+  return cost;
 }
 }
