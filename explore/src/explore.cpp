@@ -88,9 +88,12 @@ Explore::Explore()
   ROS_INFO("Connected to move_base server");
 
   last_progress_ = ros::Time::now();
-  exploring_timer_ =
-      relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
-                               [this](const ros::TimerEvent&) { makePlan(); });
+  exploring_timer_ = relative_nh_.createTimer(
+		ros::Duration(1. / planner_frequency_),
+		[this](const ros::TimerEvent&) { makePlan(); }, false, false);
+  as_.registerGoalCallback(boost::bind(&Explore::goalCB, this));
+  as_.registerPreemptCallback(boost::bind(&Explore::preemptCB, this));
+  as_.start();
 }
 
 Explore::~Explore()
