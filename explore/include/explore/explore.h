@@ -99,9 +99,11 @@ private:
 
   std::vector<geometry_msgs::Point> frontier_blacklist_;
   geometry_msgs::Point prev_goal_;
+  geometry_msgs::Pose prev_pose_;
   double prev_distance_;
   ros::Time last_progress_;
   size_t last_markers_count_;
+  bool initialized_;
 
   // frontier memory
   std::vector<frontier_exploration::Frontier> previous_frontiers_;
@@ -110,7 +112,8 @@ private:
   double planner_frequency_;
   double potential_scale_, orientation_scale_, gain_scale_;
   double max_replanning_distance_;
-  ros::Duration progress_timeout_;
+  double min_progress_distance_;
+  ros::Duration progress_timeout_, goal_timeout_;
   bool visualize_;
 };
 }
