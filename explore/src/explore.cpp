@@ -211,7 +211,10 @@ void Explore::makePlan()
 		  // if too far from current goal, don't replan yet
 		  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
 		  if(distance>max_replanning_distance_)
+		  {
+			  prev_pose_ = pose;
 			  return;
+		  }
 	  }
 
 	 // try to cancel the current goal, if there is still one active
