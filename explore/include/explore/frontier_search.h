@@ -4,6 +4,8 @@
 #include <costmap_2d/costmap_2d.h>
 #include <geometry_msgs/Pose.h>
 
+#include <Eigen/Core>
+
 namespace frontier_exploration
 {
 /**
@@ -74,10 +76,11 @@ protected:
    * @details cost function is defined by potential_scale and gain_scale
    *
    * @param frontier frontier for which compute the cost
-   * @param robot_angle the current robot angle in the 2D map, used for adding the orientation cost
+   * @param robot_pose the current pose of the robot.
+   * @param robot_orientation the current robot orientation in the 2D map, used for adding the orientation cost
    * @return cost of the frontier
    */
-  double frontierCost(const Frontier& frontier, const double robot_angle);
+  double frontierCost(const Frontier& frontier, const geometry_msgs::Pose& robot_pose, const Eigen::Vector2d& robot_orientation);
 
 private:
   costmap_2d::Costmap2D* costmap_;

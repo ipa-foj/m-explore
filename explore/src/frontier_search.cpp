@@ -92,10 +92,11 @@ std::vector<Frontier> FrontierSearch::searchFrom(const geometry_msgs::Pose& robo
   tf2::Matrix3x3 R(quat);
   double roll, pitch, yaw;
   R.getRPY(roll, pitch, yaw);
+  Eigen::Vector2d rotation_vector(cos(yaw), sin(yaw));
 
   // set costs of frontiers
   for (auto& frontier : frontier_list) {
-	frontier.cost = frontierCost(frontier, yaw);
+	frontier.cost = frontierCost(frontier, robot_pose, rotation_vector);
   }
   std::sort(
       frontier_list.begin(), frontier_list.end(),
@@ -198,13 +199,17 @@ bool FrontierSearch::isNewFrontierCell(unsigned int idx,
   return false;
 }
 
-double FrontierSearch::frontierCost(const Frontier& frontier, const double robot_angle)
+double FrontierSearch::frontierCost(const Frontier& frontier, const geometry_msgs::Pose& robot_pose,
+									const Eigen::Vector2d& robot_orientation)
 {
   // get the basic cost (the closer and bigger a frontier, the lower the cost)
   double cost = (potential_scale_ * frontier.min_distance * costmap_->getResolution()) - (gain_scale_ * frontier.size * costmap_->getResolution());
 
   // add the rotation cost (the further the robot has to rotate, the higher)
-
+  Eigen::Vector2d position_difference(frontier.middle.x-robot_pose.position.x, frontier.middle.y-robot_pose.position.y);
+  position_difference.normalize();
+  double transition_angle = acos(position_difference.dot(robot_orientation)/(position_difference.norm()+robot_orientation.norm()));
+  cost += orientation_scale_*transition_angle;
   return cost;
 }
 }

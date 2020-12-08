@@ -205,9 +205,8 @@ void Explore::makePlan()
 	  tf::Quaternion current_quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 	  tf::Quaternion previous_quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 	  double angle_diff = current_quat.angleShortestPath(previous_quat);
-	  if(pose_diff>min_progress_distance_ || angle_diff>0.4)
+	  if(pose_diff>min_progress_distance_ || angle_diff>0.1)
 		  last_progress_ = ros::Time::now(); // progress was made, reset the timeout-timer
-
 
 	  // only check distance to current goal if the progress timeout wasn't hit
 	  if(ros::Time::now()-last_progress_<=goal_timeout_ && move_base_client_.getState()!=actionlib::SimpleClientGoalState::ABORTED)
