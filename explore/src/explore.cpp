@@ -38,6 +38,7 @@
 #include <explore/explore.h>
 
 #include <thread>
+#include <unistd.h>
 
 inline static bool operator==(const geometry_msgs::Point& one,
                               const geometry_msgs::Point& two)
@@ -66,13 +67,16 @@ Explore::Explore()
   private_nh_.param("planner_frequency", planner_frequency_, 1.0);
   private_nh_.param("progress_timeout", timeout, 30.0);
   progress_timeout_ = ros::Duration(timeout);
+  private_nh_.param("goal_timeout", timeout, 5.0);
+  goal_timeout_ = ros::Duration(timeout);
   private_nh_.param("visualize", visualize_, false);
   private_nh_.param("potential_scale", potential_scale_, 1e-3);
-  private_nh_.param("orientation_scale", orientation_scale_, 0.0);
+  private_nh_.param("orientation_scale", orientation_scale_, 1.0);
   private_nh_.param("gain_scale", gain_scale_, 1.0);
   private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
   private_nh_.param("max_replanning_distance", max_replanning_distance_, 1.0);
   private_nh_.param("max_cell_cost", max_cell_cost, 0);
+  private_nh_.param("min_progress_distance", min_progress_distance_, 0.2);
 
   search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
 												 potential_scale_, gain_scale_, orientation_scale_,
@@ -94,6 +98,12 @@ Explore::Explore()
   as_.registerGoalCallback(boost::bind(&Explore::goalCB, this));
   as_.registerPreemptCallback(boost::bind(&Explore::preemptCB, this));
   as_.start();
+
+  prev_goal_.x = 0;
+  prev_goal_.y = 0;
+  prev_pose_.position = prev_goal_;
+
+  initialized_ = false;
 }
 
 Explore::~Explore()
@@ -190,17 +200,27 @@ void Explore::makePlan()
   // get current robot pose
   geometry_msgs::Pose pose = costmap_client_.getRobotPose();
 
-  // only check distance to current goal if the progress timeout wasn't hit
-  if(ros::Time::now()-last_progress_<=progress_timeout_ && move_base_client_.getState()!=actionlib::SimpleClientGoalState::ABORTED)
+  // only check the reaching of a goal if one has been published yet
+  if(initialized_)
   {
-	  // if too far from current goal, don't replan yet
-	  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
-	  if(distance>max_replanning_distance_)
-		  return;
-  }
-  else
-  {
-	 // try to cancel the current goal
+	  // check if progress was made for reaching a goal
+	  double pose_diff = std::sqrt(std::pow(pose.position.x-prev_pose_.position.x, 2.0)+std::pow(pose.position.y-prev_pose_.position.y, 2.0));
+	  if(pose_diff>min_progress_distance_)
+		  last_progress_ = ros::Time::now(); // progress was made, reset the timeout-timer
+
+	  // only check distance to current goal if the progress timeout wasn't hit
+	  if(ros::Time::now()-last_progress_<=goal_timeout_ && move_base_client_.getState()!=actionlib::SimpleClientGoalState::ABORTED)
+	  {
+		  // if too far from current goal, don't replan yet
+		  double distance = std::sqrt(std::pow(prev_goal_.x-pose.position.x, 2.0) + std::pow(prev_goal_.y-pose.position.y, 2.0));
+		  if(distance>max_replanning_distance_)
+		  {
+			  prev_pose_ = pose;
+			  return;
+		  }
+	  }
+
+	 // try to cancel the current goal, if there is still one active
 	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE)
 	 {
 		move_base_client_.cancelAllGoals();
@@ -287,6 +307,8 @@ void Explore::makePlan()
                 const move_base_msgs::MoveBaseResultConstPtr& result) {
         reachedGoal(status, result, target_position);
       });
+  initialized_ = true;
+  prev_pose_ = pose;
 }
 
 bool Explore::goalOnBlacklist(const geometry_msgs::Point& goal)
