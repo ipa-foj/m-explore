@@ -205,7 +205,10 @@ void Explore::makePlan()
   {
 	  // check if progress was made for reaching a goal
 	  double pose_diff = std::sqrt(std::pow(pose.position.x-prev_pose_.position.x, 2.0)+std::pow(pose.position.y-prev_pose_.position.y, 2.0));
-	  if(pose_diff>min_progress_distance_)
+	  tf::Quaternion current_quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+	  tf::Quaternion previous_quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+	  double angle_diff = current_quat.angleShortestPath(previous_quat);
+	  if(pose_diff>min_progress_distance_ || angle_diff>0.1)
 		  last_progress_ = ros::Time::now(); // progress was made, reset the timeout-timer
 
 	  // only check distance to current goal if the progress timeout wasn't hit
@@ -221,10 +224,12 @@ void Explore::makePlan()
 	  }
 
 	 // try to cancel the current goal, if there is still one active
-	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE)
+	 size_t cancel_counter=0;
+	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE && cancel_counter<200)
 	 {
 		move_base_client_.cancelAllGoals();
 		usleep(1e6); // sleep for 1e6 microseconds -> 1s
+		++cancel_counter;
 	 }
   }
 
