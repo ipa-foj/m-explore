@@ -252,15 +252,18 @@ void Explore::makePlan()
 	  // if in the previous steps frontiers were left, check if they are still valid and if yes go there
 	  // (could happen because e.g. robot is stuck in separated area due to erronous costmap update)
 	  frontiers = previous_frontiers_;
+	  previous_frontiers_ = {};
+  }
+  else
+  {
+	  // store the found frontiers in the memory
+	  previous_frontiers_ = frontiers;
   }
 
   // publish frontiers as visualization markers
   if (visualize_) {
     visualizeFrontiers(frontiers);
   }
-
-  // store the found frontiers in the memory
-  previous_frontiers_ = frontiers;
 
   // find non blacklisted frontier
   auto frontier =
@@ -296,6 +299,7 @@ void Explore::makePlan()
 
   // we don't need to do anything if we still pursuing the same goal
   if (same_goal) {
+	ROS_INFO("Same goal, not doing anything");
     return;
   }
 
@@ -354,6 +358,10 @@ void Explore::reachedGoal(const actionlib::SimpleClientGoalState& status,
 
 void Explore::start()
 {
+  // make the first plan to directly start the exploration
+  makePlan();
+
+  // start the clock to replan in a certain interval
   exploring_timer_.start();
 }
 
