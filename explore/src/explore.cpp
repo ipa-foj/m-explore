@@ -208,7 +208,7 @@ void Explore::makePlan()
 	  tf::Quaternion current_quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 	  tf::Quaternion previous_quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
 	  double angle_diff = current_quat.angleShortestPath(previous_quat);
-	  if(pose_diff>min_progress_distance_ || angle_diff>0.1)
+	  if(pose_diff>min_progress_distance_ || angle_diff>0.05)
 		  last_progress_ = ros::Time::now(); // progress was made, reset the timeout-timer
 
 	  // only check distance to current goal if the progress timeout wasn't hit
@@ -225,7 +225,7 @@ void Explore::makePlan()
 
 	 // try to cancel the current goal, if there is still one active
 	 size_t cancel_counter=0;
-	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE && cancel_counter<200)
+	 while(move_base_client_.getState()==actionlib::SimpleClientGoalState::ACTIVE && cancel_counter<5)
 	 {
 		move_base_client_.cancelAllGoals();
 		usleep(1e6); // sleep for 1e6 microseconds -> 1s
@@ -372,6 +372,7 @@ void Explore::stop()
   ROS_INFO("Exploration stopped.");
   explore_lite::ExploreResult result;
   as_.setSucceeded(result);
+  initialized_ = false;
 }
 
 }  // namespace explore
