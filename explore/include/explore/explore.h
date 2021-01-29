@@ -72,8 +72,9 @@ public:
 private:
   /**
    * @brief  Make a global plan
+   * @param force_planning: Force the planning, even if the timeout or max-replanning distance hasn't been reached.
    */
-  void makePlan();
+  void makePlan(const bool force_planning=false);
 
   /**
    * @brief  Publish a frontiers as markers

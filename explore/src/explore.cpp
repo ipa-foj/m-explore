@@ -195,13 +195,13 @@ void Explore::visualizeFrontiers(
   marker_array_publisher_.publish(markers_msg);
 }
 
-void Explore::makePlan()
+void Explore::makePlan(const bool force_planning)
 {
   // get current robot pose
   geometry_msgs::Pose pose = costmap_client_.getRobotPose();
 
   // only check the reaching of a goal if one has been published yet
-  if(initialized_)
+  if(initialized_ && !force_planning)
   {
 	  // check if progress was made for reaching a goal
 	  double pose_diff = std::sqrt(std::pow(pose.position.x-prev_pose_.position.x, 2.0)+std::pow(pose.position.y-prev_pose_.position.y, 2.0));
@@ -352,7 +352,7 @@ void Explore::reachedGoal(const actionlib::SimpleClientGoalState& status,
   // callback for sendGoal, which is called in makePlan). the timer must live
   // until callback is executed.
   oneshot_ = relative_nh_.createTimer(
-      ros::Duration(0, 0), [this](const ros::TimerEvent&) { makePlan(); },
+	  ros::Duration(0, 0), [this](const ros::TimerEvent&) { makePlan(true); },
       true);
 }
 
