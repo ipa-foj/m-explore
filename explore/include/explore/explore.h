@@ -67,7 +67,7 @@ public:
   ~Explore();
 
   void start();
-  void stop();
+  void stop(bool aborted=false);
 
 private:
   /**
@@ -95,7 +95,7 @@ private:
   }
   void preemptCB()
   {
-    as_.setPreempted();
+	stop(true);
   }
 
   ros::NodeHandle private_nh_;

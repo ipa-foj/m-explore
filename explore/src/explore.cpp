@@ -235,7 +235,7 @@ void Explore::makePlan(const bool force_planning)
 
   // get frontiers sorted according to cost
   auto frontiers = search_.searchFrom(pose);
-  ROS_DEBUG("found %lu frontiers", frontiers.size());
+  ROS_INFO("found %lu frontiers", frontiers.size());
   for (size_t i = 0; i < frontiers.size(); ++i) {
     ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
   }
@@ -292,7 +292,8 @@ void Explore::makePlan(const bool force_planning)
   // black list if we've made no progress for a long time
   if (ros::Time::now() - last_progress_ > progress_timeout_) {
     frontier_blacklist_.push_back(target_position);
-    ROS_DEBUG("Adding current goal to black list");
+//    ROS_DEBUG("Adding current goal to black list");
+	std::cout << "timeout progress, adding current goal to black list" << std::endl;
     makePlan();
     return;
   }
@@ -341,8 +342,11 @@ void Explore::reachedGoal(const actionlib::SimpleClientGoalState& status,
                           const move_base_msgs::MoveBaseResultConstPtr&,
                           const geometry_msgs::Point& frontier_goal)
 {
+  if(as_.isPreemptRequested())
+	  return;
   ROS_DEBUG("Reached goal with status: %s", status.toString().c_str());
   if (status == actionlib::SimpleClientGoalState::ABORTED) {
+	std::cout << "Goal Aborted, adding current goal to black list" << std::endl;
     frontier_blacklist_.push_back(frontier_goal);
     ROS_DEBUG("Adding current goal to black list");
   }
@@ -365,14 +369,19 @@ void Explore::start()
   exploring_timer_.start();
 }
 
-void Explore::stop()
+void Explore::stop(bool aborted)
 {
   move_base_client_.cancelAllGoals();
   exploring_timer_.stop();
   ROS_INFO("Exploration stopped.");
-  explore_lite::ExploreResult result;
-  as_.setSucceeded(result);
   initialized_ = false;
+  if(!aborted)
+  {
+	  explore_lite::ExploreResult result;
+	  as_.setSucceeded(result);
+  }
+  else
+	  as_.setPreempted();
 }
 
 }  // namespace explore
