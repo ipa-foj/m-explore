@@ -73,8 +73,9 @@ private:
   /**
    * @brief  Make a global plan
    * @param force_planning: Force the planning, even if the timeout or max-replanning distance hasn't been reached.
+   * @param preempted: Additional input parameter for when move_base preempts a goal.
    */
-  void makePlan(const bool force_planning=false);
+  void makePlan(const bool force_planning=false, const bool preempted=false);
 
   /**
    * @brief  Publish a frontiers as markers
@@ -117,6 +118,7 @@ private:
   ros::Time last_progress_;
   size_t last_markers_count_;
   bool initialized_;
+  size_t preempted_goal_counter_;
 
   // frontier memory
   std::vector<frontier_exploration::Frontier> previous_frontiers_;

@@ -104,6 +104,7 @@ Explore::Explore()
   prev_pose_.position = prev_goal_;
 
   initialized_ = false;
+  preempted_goal_counter_ = 0;
 }
 
 Explore::~Explore()
@@ -195,7 +196,7 @@ void Explore::visualizeFrontiers(
   marker_array_publisher_.publish(markers_msg);
 }
 
-void Explore::makePlan(const bool force_planning)
+void Explore::makePlan(const bool force_planning, const bool preempted)
 {
   // get current robot pose
   geometry_msgs::Pose pose = costmap_client_.getRobotPose();
@@ -284,25 +285,34 @@ void Explore::makePlan(const bool force_planning)
   // time out if we are not making any progress
   bool same_goal = prev_goal_ == target_position;
   prev_goal_ = target_position;
-  if (!same_goal || prev_distance_ > frontier->min_distance) {
+  if (!same_goal || prev_distance_ > frontier->min_distance || preempted) {
     // we have different goal or we made some progress
     last_progress_ = ros::Time::now();
     prev_distance_ = frontier->min_distance;
   }
   // black list if we've made no progress for a long time
-  if (ros::Time::now() - last_progress_ > progress_timeout_) {
+  if (ros::Time::now() - last_progress_ > progress_timeout_ || preempted_goal_counter_>3) {
     frontier_blacklist_.push_back(target_position);
 //    ROS_DEBUG("Adding current goal to black list");
 	std::cout << "timeout progress, adding current goal to black list" << std::endl;
+	preempted_goal_counter_ = 0; // reset counter to not add any new found goal to the blacklist
     makePlan();
     return;
   }
 
   // we don't need to do anything if we still pursuing the same goal
-  if (same_goal) {
-	ROS_INFO("Same goal, not doing anything");
-    return;
+  if (same_goal)
+  {
+	if(!preempted)
+	{
+	  ROS_INFO("Same goal, not doing anything");
+	  return;
+	}
+	else
+		preempted_goal_counter_ += 1;
   }
+  else
+	  preempted_goal_counter_ = 0; // reset the counter for each new goal
 
   // send goal to move_base if we have something new to pursue
   move_base_client_.cancelAllGoals();
@@ -356,7 +366,7 @@ void Explore::reachedGoal(const actionlib::SimpleClientGoalState& status,
   // callback for sendGoal, which is called in makePlan). the timer must live
   // until callback is executed.
   oneshot_ = relative_nh_.createTimer(
-	  ros::Duration(0, 0), [this](const ros::TimerEvent&) { makePlan(true); },
+	  ros::Duration(0, 0), [this, status](const ros::TimerEvent&) { makePlan(true, status==actionlib::SimpleClientGoalState::PREEMPTED); },
       true);
 }
 
